@@ -133,7 +133,7 @@ def paste_mask_in_image(mask, box, im_h, im_w, thresh=0.5, padding=1):
     # Resize mask
     mask = mask.to(torch.float32)
     mask = F.interpolate(mask, size=(h, w), mode='bilinear', align_corners=False)
-    mask = mask[0][0])
+    mask = mask[0][0]
 
     if thresh >= 0:
         mask = np.array(mask > thresh, dtype=np.uint8)
