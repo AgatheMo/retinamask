@@ -15,7 +15,6 @@ class MaskPostProcessor(nn.Module):
     by taking the mask corresponding to the class with max
     probability (which are of fixed size and directly output
     by the CNN) and return the masks in the mask field of the BoxList.
-
     If a masker object is passed, it will additionally
     project the masks in the image according to the locations in boxes,
     """
@@ -30,7 +29,6 @@ class MaskPostProcessor(nn.Module):
             x (Tensor): the mask logits
             boxes (list[BoxList]): bounding boxes that are used as
                 reference, one for ech image
-
         Returns:
             results (list[BoxList]): one BoxList for each image, containing
                 the extra field mask
@@ -44,11 +42,11 @@ class MaskPostProcessor(nn.Module):
         index = torch.arange(num_masks, device=labels.device)
         mask_prob = mask_prob[index, labels][:, None]
 
-        if self.masker:
-            mask_prob = self.masker(mask_prob, boxes)
-
         boxes_per_image = [len(box) for box in boxes]
         mask_prob = mask_prob.split(boxes_per_image, dim=0)
+
+        if self.masker:
+            mask_prob = self.masker(mask_prob, boxes)
 
         results = []
         for prob, box in zip(mask_prob, boxes):
@@ -119,14 +117,14 @@ def paste_mask_in_image(mask, box, im_h, im_w, thresh=0.5, padding=1):
     padded_mask, scale = expand_masks(mask[None], padding=padding)
     mask = padded_mask[0, 0]
     box = expand_boxes(box[None], scale)[0]
-    box = box.numpy().astype(np.int32)
+    box = box.to(dtype=torch.int32)
 
     TO_REMOVE = 1
     w = box[2] - box[0] + TO_REMOVE
     h = box[3] - box[1] + TO_REMOVE
     w = max(w, 1)
     h = max(h, 1)
-    
+
     # Set shape to [batchxCxHxW]
     mask = mask.expand((1, 1, -1, -1))
 
@@ -136,12 +134,11 @@ def paste_mask_in_image(mask, box, im_h, im_w, thresh=0.5, padding=1):
     mask = mask[0][0]
 
     if thresh >= 0:
-        mask = np.array(mask > thresh, dtype=np.uint8)
-        mask = torch.from_numpy(mask)
+        mask = mask > thresh
     else:
         # for visualization and debugging, we also
         # allow it to return an unmodified mask
-        mask = torch.from_numpy(mask * 255).to(torch.uint8)
+        mask = (mask * 255).to(torch.uint8)
 
     im_mask = torch.zeros((im_h, im_w), dtype=torch.uint8)
     x_0 = max(box[0], 0)
@@ -179,15 +176,27 @@ class Masker(object):
         return res
 
     def __call__(self, masks, boxes):
-        # TODO do this properly
         if isinstance(boxes, BoxList):
             boxes = [boxes]
-        assert len(boxes) == 1, "Only single image batch supported"
-        result = self.forward_single_image(masks, boxes[0])
-        return result
+
+        # Make some sanity check
+        assert len(boxes) == len(masks), "Masks and boxes should have the same length."
+
+        # TODO:  Is this JIT compatible?
+        # If not we should make it compatible.
+        results = []
+        for mask, box in zip(masks, boxes):
+            assert mask.shape[0] == len(box), "Number of objects should be the same."
+            result = self.forward_single_image(mask, box)
+            results.append(result)
+        return results
 
 
 def make_roi_mask_post_processor(cfg):
-    masker = None
+    if cfg.MODEL.ROI_MASK_HEAD.POSTPROCESS_MASKS:
+        mask_threshold = cfg.MODEL.ROI_MASK_HEAD.POSTPROCESS_MASKS_THRESHOLD
+        masker = Masker(threshold=mask_threshold, padding=1)
+    else:
+        masker = None
     mask_post_processor = MaskPostProcessor(masker)
     return mask_post_processor
