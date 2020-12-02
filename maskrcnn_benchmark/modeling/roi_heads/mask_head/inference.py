@@ -1,8 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import numpy as np
 import torch
-from PIL import Image
 from torch import nn
+import torch.nn.functional as F
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 
@@ -126,10 +126,14 @@ def paste_mask_in_image(mask, box, im_h, im_w, thresh=0.5, padding=1):
     h = box[3] - box[1] + TO_REMOVE
     w = max(w, 1)
     h = max(h, 1)
+    
+    # Set shape to [batchxCxHxW]
+    mask = mask.expand((1, 1, -1, -1))
 
-    mask = Image.fromarray(mask.cpu().numpy())
-    mask = mask.resize((w, h), resample=Image.BILINEAR)
-    mask = np.array(mask, copy=False)
+    # Resize mask
+    mask = mask.to(torch.float32)
+    mask = F.interpolate(mask, size=(h, w), mode='bilinear', align_corners=False)
+    mask = mask[0][0])
 
     if thresh >= 0:
         mask = np.array(mask > thresh, dtype=np.uint8)
