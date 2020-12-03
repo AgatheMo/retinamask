@@ -12,6 +12,7 @@ from maskrcnn_benchmark.modeling.roi_heads.mask_head.inference import Masker
 class COCODemo(object):
     # COCO categories for pretty print
     CATEGORIES = [
+        "background",
         "T1",
         "T2",
         "T3",
