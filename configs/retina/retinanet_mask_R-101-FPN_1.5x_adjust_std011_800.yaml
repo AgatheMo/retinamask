@@ -23,6 +23,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
+    NUM_CLASSES: 18
   ROI_MASK_HEAD:
     POOLER_SCALES: (0.125, 0.0625, 0.03125)
     #POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
@@ -34,8 +35,8 @@ MODEL:
     SHARE_BOX_FEATURE_EXTRACTOR: False
   MASK_ON: True
 DATASETS:
-  TRAIN: ("coco_2017_train",)
-  TEST: ("coco_2017_val",)
+  TRAIN: ("coco_vertebres_train",)
+  TEST: ("coco_vertebres_test",)
 INPUT:
   MIN_SIZE_TRAIN: (800,)
   MAX_SIZE_TRAIN: 1333
@@ -45,11 +46,11 @@ DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   # Assume 4 gpus
-  BASE_LR: 0.0025
+  BASE_LR: 0.00012
   WEIGHT_DECAY: 0.0001
   STEPS: (360000, 480000)
   MAX_ITER: 540000
-  IMS_PER_BATCH: 4
+  IMS_PER_BATCH: 2
 RETINANET:
   RETINANET_ON: True
   BACKBONE: "p3p7"
@@ -58,3 +59,6 @@ RETINANET:
   NUM_MASKS_TEST: 50
   BBOX_REG_BETA: 0.11
   SELFADJUST_SMOOTH_L1: True
+    NUM_CLASSES: 17
+OUTPUT_DIR : "./sortie/"
+PATHS_CATALOG : "./maskrcnn_benchmark/config/paths_catalog.py"
