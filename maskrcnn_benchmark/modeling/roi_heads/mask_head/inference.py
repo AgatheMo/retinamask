@@ -1,8 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import numpy as np
 import torch
+from PIL import Image
 from torch import nn
-from maskrcnn_benchmark.layers.misc import interpolate
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 
@@ -15,6 +15,7 @@ class MaskPostProcessor(nn.Module):
     by taking the mask corresponding to the class with max
     probability (which are of fixed size and directly output
     by the CNN) and return the masks in the mask field of the BoxList.
+
     If a masker object is passed, it will additionally
     project the masks in the image according to the locations in boxes,
     """
@@ -28,7 +29,8 @@ class MaskPostProcessor(nn.Module):
         Arguments:
             x (Tensor): the mask logits
             boxes (list[BoxList]): bounding boxes that are used as
-                reference, one for each image
+                reference, one for ech image
+
         Returns:
             results (list[BoxList]): one BoxList for each image, containing
                 the extra field mask
@@ -42,11 +44,11 @@ class MaskPostProcessor(nn.Module):
         index = torch.arange(num_masks, device=labels.device)
         mask_prob = mask_prob[index, labels][:, None]
 
-        boxes_per_image = [len(box) for box in boxes]
-        mask_prob = mask_prob.split(boxes_per_image, dim=0)
-
         if self.masker:
             mask_prob = self.masker(mask_prob, boxes)
+
+        boxes_per_image = [len(box) for box in boxes]
+        mask_prob = mask_prob.split(boxes_per_image, dim=0)
 
         results = []
         for prob, box in zip(mask_prob, boxes):
@@ -109,43 +111,35 @@ def expand_masks(mask, padding):
     pad2 = 2 * padding
     scale = float(M + pad2) / M
     padded_mask = mask.new_zeros((N, 1, M + pad2, M + pad2))
-
     padded_mask[:, :, padding:-padding, padding:-padding] = mask
     return padded_mask, scale
 
 
 def paste_mask_in_image(mask, box, im_h, im_w, thresh=0.5, padding=1):
-    # Need to work on the CPU, where fp16 isn't supported - cast to float to avoid this
-    mask = mask.float()
-    box = box.float()
-
     padded_mask, scale = expand_masks(mask[None], padding=padding)
     mask = padded_mask[0, 0]
     box = expand_boxes(box[None], scale)[0]
-    box = box.to(dtype=torch.int32)
+    box = box.numpy().astype(np.int32)
 
     TO_REMOVE = 1
-    w = int(box[2] - box[0] + TO_REMOVE)
-    h = int(box[3] - box[1] + TO_REMOVE)
+    w = box[2] - box[0] + TO_REMOVE
+    h = box[3] - box[1] + TO_REMOVE
     w = max(w, 1)
     h = max(h, 1)
 
-    # Set shape to [batchxCxHxW]
-    mask = mask.expand((1, 1, -1, -1))
-
-    # Resize mask
-    mask = mask.to(torch.float32)
-    mask = interpolate(mask, size=(h, w), mode='bilinear', align_corners=False)
-    mask = mask[0][0]
+    mask = Image.fromarray(mask.cpu().numpy())
+    mask = mask.resize((w, h), resample=Image.BILINEAR)
+    mask = np.array(mask, copy=False)
 
     if thresh >= 0:
-        mask = mask > thresh
+        mask = np.array(mask > thresh, dtype=np.uint8)
+        mask = torch.from_numpy(mask)
     else:
         # for visualization and debugging, we also
         # allow it to return an unmodified mask
-        mask = (mask * 255).to(torch.bool)
+        mask = torch.from_numpy(mask * 255).to(torch.uint8)
 
-    im_mask = torch.zeros((im_h, im_w), dtype=torch.bool)
+    im_mask = torch.zeros((im_h, im_w), dtype=torch.uint8)
     x_0 = max(box[0], 0)
     x_1 = min(box[2] + 1, im_w)
     y_0 = max(box[1], 0)
@@ -181,27 +175,15 @@ class Masker(object):
         return res
 
     def __call__(self, masks, boxes):
+        # TODO do this properly
         if isinstance(boxes, BoxList):
             boxes = [boxes]
-
-        # Make some sanity check
-        assert len(boxes) == len(masks), "Masks and boxes should have the same length."
-
-        # TODO:  Is this JIT compatible?
-        # If not we should make it compatible.
-        results = []
-        for mask, box in zip(masks, boxes):
-            assert mask.shape[0] == len(box), "Number of objects should be the same."
-            result = self.forward_single_image(mask, box)
-            results.append(result)
-        return results
+        assert len(boxes) == 1, "Only single image batch supported"
+        result = self.forward_single_image(masks, boxes[0])
+        return result
 
 
 def make_roi_mask_post_processor(cfg):
-    if cfg.MODEL.ROI_MASK_HEAD.POSTPROCESS_MASKS:
-        mask_threshold = cfg.MODEL.ROI_MASK_HEAD.POSTPROCESS_MASKS_THRESHOLD
-        masker = Masker(threshold=mask_threshold, padding=1)
-    else:
-        masker = None
+    masker = None
     mask_post_processor = MaskPostProcessor(masker)
     return mask_post_processor
