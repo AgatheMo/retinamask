@@ -88,9 +88,7 @@ def prepare_for_coco_segmentation(predictions, dataset):
         prediction = prediction.resize((image_width, image_height))
         masks = prediction.get_field("mask")
         # t = time.time()
-        if list(masks.shape[-2:]) != [image_height, image_width]:
-            masks = masker(masks.expand(1, -1, -1, -1, -1), prediction)
-            masks = masks[0]
+        masks = masker(masks, prediction)
         # logger.info('Time mask: {}'.format(time.time() - t))
         # prediction = prediction.convert('xywh')
 
