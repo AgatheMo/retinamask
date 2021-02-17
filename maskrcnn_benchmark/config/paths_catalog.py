@@ -9,12 +9,12 @@ class DatasetCatalog(object):
 
     DATASETS = {
         "coco_vertebres_train": (
-            "coco/images_SJ",
-            "coco/annotations/train_segmentation_SJ.json",
+            "coco/images",
+            "coco/annotations/train_segmentation.json",
           ),
         "coco_vertebres_test": (
-            "coco/images_SJ",
-            "coco/annotations/test_segmentation_SJ.json",
+            "coco/images",
+            "coco/annotations/test_segmentation.json",
           ),
         "coco_test-dev": (
             "coco/test2017",
