@@ -13,7 +13,7 @@ class DatasetCatalog(object):
             "coco/annotations/train_segmentation_SJ.json",
           ),
         "coco_vertebres_test": (
-            "coco/images",
+            "coco/images_SJ",
             "coco/annotations/test_segmentation_SJ.json",
           ),
         "coco_test-dev": (
