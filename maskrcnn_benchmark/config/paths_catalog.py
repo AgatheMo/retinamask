@@ -5,16 +5,16 @@ import os
 
 
 class DatasetCatalog(object):
-    DATA_DIR = "datasetsSJ2"
+    DATA_DIR = "datasetsSJ"
 
     DATASETS = {
         "coco_vertebres_train": (
             "coco/images_SJ",
-            "coco/annotations/train_segmentation_SJ2.json",
+            "coco/annotations/train_segmentation_SJ_K1.json",
           ),
         "coco_vertebres_test": (
             "coco/images_SJ",
-            "coco/annotations/test_segmentation_SJ2.json",
+            "coco/annotations/test_segmentation_SJ_K1.json",
           ),
         "coco_test-dev": (
             "coco/test2017",
