@@ -5,7 +5,7 @@ import os
 
 
 class DatasetCatalog(object):
-    DATA_DIR = "datasetsSJ"
+    DATA_DIR = "datasetsSJ2"
 
     DATASETS = {
         "coco_vertebres_train": (
